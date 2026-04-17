@@ -1,0 +1,30 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Helvetica Neue", Arial, "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Georgia", serif;
+  
+  --color-bg: #0F172A;
+  --color-fg: #ffffff;
+  --color-accent: #22D3EE;
+  --color-highlight: #F472B6;
+  --color-muted: rgba(255, 255, 255, 0.4);
+  --color-line: rgba(255, 255, 255, 0.1);
+}
+
+@layer base {
+  body {
+    @apply bg-bg text-fg antialiased font-sans;
+  }
+}
+
+@layer components {
+  .meta-tag {
+    @apply text-[11px] uppercase tracking-[3px] text-muted mb-5 block font-semibold;
+  }
+  
+  .hero-title {
+    @apply font-serif text-[100px] leading-[0.85] tracking-[-4px] font-normal;
+  }
+}

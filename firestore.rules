@@ -1,0 +1,99 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {userId} (Firebase Auth UID)
+    // Fields:
+    //   - uid: string (required)
+    //   - email: string (required)
+    //   - displayName: string (optional)
+    //   - photoURL: string (optional)
+    //   - isPremium: boolean (required)
+    //   - premiumUntil: string (optional, ISO 8601)
+    //
+    // Collection: songs
+    // Document ID: {songId}
+    // Fields:
+    //   - title: string (required)
+    //   - artist: string (required)
+    //   - url: string (required)
+    //   - coverUrl: string (optional)
+    //   - duration: number (optional)
+    //
+    // Collection: users/{userId}/likes
+    // Document ID: {songId}
+    // Fields:
+    //   - userId: string (required)
+    //   - songId: string (required)
+    //   - createdAt: string (required, ISO 8601)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (
+          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
+          (request.auth.token.email == "ktechnoit@gmail.com" && request.auth.token.email_verified == true)
+        );
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'isPremium']) &&
+             data.uid is string &&
+             data.email is string &&
+             data.isPremium is bool;
+    }
+
+    function isValidSong(data) {
+      return data.keys().hasAll(['title', 'artist', 'url']) &&
+             data.title is string && data.title.size() < 200 &&
+             data.artist is string && data.artist.size() < 200 &&
+             data.url is string && data.url.size() < 1000;
+    }
+
+    function isValidLike(data, userId, songId) {
+      return data.keys().hasAll(['userId', 'songId', 'createdAt']) &&
+             data.userId == userId &&
+             data.userId == request.auth.uid &&
+             data.songId == songId &&
+             data.createdAt is string;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.isPremium == false;
+      allow update: if (isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.isPremium == resource.data.isPremium) || isAdmin();
+
+      match /likes/{songId} {
+        allow read: if isOwner(userId);
+        allow create, delete: if isOwner(userId) && (request.method == 'DELETE' || isValidLike(request.resource.data, userId, songId));
+      }
+    }
+
+    match /songs/{songId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() && isValidSong(request.resource.data);
+    }
+  }
+}
